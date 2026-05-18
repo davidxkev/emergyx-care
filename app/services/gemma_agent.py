@@ -359,6 +359,7 @@ def _ollama_num_predict(think: bool) -> int:
 def ollama_error_message(exc: Exception) -> str:
     message = str(exc)
     response = getattr(exc, "response", None)
+    status_code = getattr(response, "status_code", None)
     detail = ""
     if response is not None:
         try:
@@ -366,12 +367,26 @@ def ollama_error_message(exc: Exception) -> str:
         except Exception:
             detail = ""
     combined = f"{message} {detail}".lower()
-    if "requires more system memory" in combined or "model request too large" in combined:
+    if (
+        status_code == 500
+        or "500 internal server error" in combined
+        or "requires more system memory" in combined
+        or "model request too large" in combined
+    ):
         return (
-            "Gemma 4 E2B is installed, but Ollama could not load it because Docker does not have "
-            "enough memory. Increase Docker Desktop memory to at least 12 GB, then restart the demo."
+            "Gemma 4 E2B is installed, but Ollama could not complete the request in this environment. "
+            "On Docker Desktop this is usually because the model needs more memory than Docker has available. "
+            "Increase Docker Desktop memory to at least 12 GB, restart Docker, then run ./scripts/start_demo.sh again."
         )
-    return f"Gemma/Ollama is unavailable right now: {message}"
+    if "connect" in combined or "connection" in combined or "unreachable" in combined:
+        return (
+            "Gemma/Ollama is not reachable. Make sure the Docker demo stack is running, then run "
+            "./scripts/start_demo.sh again."
+        )
+    return (
+        "Gemma/Ollama is temporarily unavailable. The demo can continue with seeded local data, "
+        "but full Gemma replies require Ollama to be running with enough memory."
+    )
 
 
 def _call_ollama(
