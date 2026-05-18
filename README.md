@@ -20,15 +20,15 @@ detects likely fall/emergency patterns, sends caregiver alerts, and uses
 **Gemma 4 E2B via Ollama** to explain incidents, answer caregiver questions, and
 generate daily/weekly care reports.
 
-The recommended judging path runs fully in **demo mode**: no real sensors,
+The recommended demo path runs fully in **demo mode**: no real sensors,
 Telegram credentials, cloud AI, or manual database setup required.
 
 > **Prototype only. Not a medical device. Not a medical diagnosis.**
 
-## Judge TL;DR
+## Fast Sensor-Free Demo
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/davidxkev/emergyx-care.git
 cd emergyx-care
 ollama pull gemma4:e2b
 ./scripts/start_demo.sh
@@ -41,19 +41,15 @@ Open:
 http://localhost:3000/dashboard?mode=demo
 ```
 
-Expected verification output:
-
-```text
-Emergyx Care judge demo verification passed.
-```
+The verification script should finish with a success message.
 
 ## Demo Media
 
-Add these before final submission:
+Suggested media to include in a project page, release, or pitch:
 
 | Asset | Path or link |
 | --- | --- |
-| Demo video | `<add link>` |
+| Demo video | Record a short walkthrough of the sensor-free demo flow |
 | Care Overview screenshot | `docs/screenshots/overview.png` |
 | Gemma Assistant screenshot | `docs/screenshots/chat.png` |
 | Reports screenshot | `docs/screenshots/reports.png` |
@@ -61,7 +57,7 @@ Add these before final submission:
 | Residents screenshot | `docs/screenshots/residents.png` |
 | Settings screenshot | `docs/screenshots/settings.png` |
 
-When screenshots are available, add them near the top of this README so judges
+When screenshots are available, add them near the top of this README so visitors
 can see the working product before reading setup details.
 
 ## Why It Matters
@@ -110,7 +106,7 @@ depend on model latency.
 
 ## 3-Minute Demo Script
 
-| Time | Action | What judges should see |
+| Time | Action | What to show |
 | --- | --- | --- |
 | 0:00 | Open `http://localhost:3000/dashboard?mode=demo` | Seeded resident, local safety state, recent care activity, Gemma status |
 | 0:30 | Trigger a demo likely-fall scenario | Dashboard updates, alert is created, local timeline records the event |
@@ -229,7 +225,7 @@ http://localhost:3000/dashboard?mode=demo
 Required:
 
 - macOS, Linux, or Windows with WSL/Docker support.
-- Docker Desktop, recommended for judge reproducibility.
+- Docker Desktop, recommended for reproducible local setup.
 - Ollama.
 - Gemma 4 E2B model available in Ollama.
 
@@ -351,8 +347,8 @@ It includes:
 
 ## Telegram
 
-Telegram is optional. Demo mode can use mock alerts, so judges do not need a
-Telegram token.
+Telegram is optional. Demo mode can use mock alerts, so a Telegram token is not
+required.
 
 For real Telegram alerts, configure:
 
@@ -376,7 +372,7 @@ The `/dashboard` command can send the LAN dashboard link for phone access.
 
 ## Live Sensors
 
-Live sensors are optional. The submission demo does not require hardware.
+Live sensors are optional. The local demo does not require hardware.
 
 Supported live hardware path:
 
@@ -386,7 +382,7 @@ Supported live hardware path:
 - Python ingestion using `aioesphomeapi`.
 
 Real sensor mode depends on local hardware, network IPs, and ESPHome entity
-keys. Use demo mode for judging unless the hardware is physically available.
+keys. Use demo mode unless the hardware is physically available.
 
 ## Phone Access
 
@@ -580,8 +576,8 @@ The demo is designed to work without:
 - Colab.
 - Manual database setup.
 
-The demo uses seeded local data and mock alerts so judges can evaluate the full
-caregiver experience quickly.
+The demo uses seeded local data and mock alerts so the full caregiver
+experience can be evaluated quickly.
 
 Known external dependency:
 
@@ -589,8 +585,8 @@ Known external dependency:
   Gemma 4 E2B model tag.
 
 If Gemma is unavailable, some AI-powered paths may fall back to deterministic
-summaries or show Gemma as offline. For the intended hackathon demo, run Ollama
-with Gemma 4 E2B available.
+summaries or show Gemma as offline. For the full demo experience, run Ollama
+with Gemma 4 E2B available and enough local memory.
 
 ## Known Limitations
 
@@ -604,21 +600,21 @@ with Gemma 4 E2B available.
 - Real-world deployment would require hardware validation, caregiver workflow
   testing, safety review, privacy review, and regulatory assessment.
 
-## Submission Recommendation
+## Project Package
 
-Submit with:
+Recommended project materials:
 
 - The repository.
 - This README.
 - A short demo video.
 - Screenshots of Care Overview, Gemma Assistant, Reports, Sensors, Residents,
   and Settings.
-- Clear note that the recommended judging path is demo mode.
+- Clear note that the recommended path is demo mode without sensors.
 
-Recommended judge command sequence:
+Recommended demo command sequence:
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/davidxkev/emergyx-care.git
 cd emergyx-care
 ollama pull gemma4:e2b
 ./scripts/start_demo.sh
