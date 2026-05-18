@@ -20,8 +20,9 @@ detects likely fall/emergency patterns, sends caregiver alerts, and uses
 **Gemma 4 E2B via Ollama** to explain incidents, answer caregiver questions, and
 generate daily/weekly care reports.
 
-The recommended demo path runs fully in **demo mode**: no real sensors,
-Telegram credentials, cloud AI, or manual database setup required.
+The recommended demo path runs fully in **demo mode**: no real sensors, cloud AI,
+or manual database setup required. The full hardware caregiver-alert workflow
+uses Seeed Studio sensors and Telegram.
 
 > **Prototype only. Not a medical device. Not a medical diagnosis.**
 
@@ -118,8 +119,8 @@ depend on model latency.
 | Gemma pattern monitor | Ready | Scans local care data for notable patterns |
 | Rule-based urgent alerts | Ready | Does not wait for AI inference |
 | Gemma-first notifications | Experimental | Optional setting for Gemma-drafted alert decisions |
-| Telegram alerts | Optional | Requires bot token and chat ID, mock alerts work in demo mode |
-| Live ESPHome sensors | Optional | Requires local Seeed hardware and network setup |
+| Telegram alerts | Required for real alerts | Requires bot token and chat ID; mock alerts work in demo mode |
+| Live ESPHome sensors | Required for live sensing | Demo mode is available without hardware |
 | Public hosted demo | Not included | Use local Docker demo or LAN phone access |
 
 ## Dashboard Pages
@@ -219,6 +220,12 @@ Required:
 - Docker Desktop, recommended for reproducible local setup.
 - Ollama.
 - Gemma 4 E2B model available in Ollama.
+- Telegram bot token and chat ID for caregiver alert delivery.
+- Seeed Studio mmWave fall sensor for live fall/emergency sensing.
+- Seeed Studio heart/breathing sensor for live wellness signals.
+
+Demo mode is available without Seeed Studio sensors. It uses seeded local data
+and mock alerts so the caregiver workflow can be reviewed without hardware.
 
 Recommended:
 
@@ -228,9 +235,6 @@ Recommended:
 
 Optional:
 
-- Telegram bot token and chat ID.
-- Seeed Studio fall sensor.
-- Seeed Studio heart/breathing sensor.
 - Phone on the same Wi-Fi for LAN dashboard access.
 
 ## Gemma Model
@@ -265,8 +269,8 @@ In the default local demo:
 - Gemma runs locally through Ollama.
 - No camera is used.
 - No resident timeline is sent to a cloud AI service.
-- Telegram is optional.
-- Demo mode can use mock alerts instead of real Telegram credentials.
+- Telegram is used for real caregiver alert delivery.
+- Demo mode can use mock alerts when Telegram credentials are not available.
 
 Emergyx Care is designed around the principle that sensitive home-care data
 should be processed locally whenever possible.
@@ -338,8 +342,8 @@ It includes:
 
 ## Telegram
 
-Telegram is optional. Demo mode can use mock alerts, so a Telegram token is not
-required.
+Telegram is required for real caregiver alert delivery. Demo mode can use mock
+alerts when a Telegram token/chat ID is not available.
 
 For real Telegram alerts, configure:
 
@@ -363,7 +367,8 @@ The `/dashboard` command can send the LAN dashboard link for phone access.
 
 ## Live Sensors
 
-Live sensors are optional. The local demo does not require hardware.
+Seeed Studio sensors are required for the live hardware workflow. The local demo
+does not require hardware and can be run with seeded sensor-like data.
 
 Supported live hardware path:
 
@@ -373,7 +378,7 @@ Supported live hardware path:
 - Python ingestion using `aioesphomeapi`.
 
 Real sensor mode depends on local hardware, network IPs, and ESPHome entity
-keys. Use demo mode unless the hardware is physically available.
+keys. Use demo mode when the hardware is not physically available.
 
 ## Phone Access
 
@@ -558,7 +563,7 @@ data/
 
 ## Reproducibility Notes
 
-The demo is designed to work without:
+The sensor-free demo is designed to work without:
 
 - Real sensors.
 - Telegram credentials.
@@ -567,8 +572,9 @@ The demo is designed to work without:
 - Colab.
 - Manual database setup.
 
-The demo uses seeded local data and mock alerts so the full caregiver
-experience can be evaluated quickly.
+The demo uses seeded local data and mock alerts so the caregiver workflow can be
+reviewed quickly. The full live workflow requires Seeed Studio sensors and
+Telegram credentials.
 
 Known external dependency:
 
