@@ -743,25 +743,25 @@ def _call_weekly_gemma(ctx: dict[str, Any]) -> str:
     )
     payload = {
         "model": GEMMA_WEEKLY_MODEL,
-        "messages": [
-            {
-                "role": "system",
-                "content": (
-                    "You are Gemma, a local caregiver-support assistant for Emergyx Care. "
-                    "Use conservative, practical language. Never diagnose."
-                ),
-            },
-            {"role": "user", "content": prompt},
-        ],
+        "prompt": (
+            "You are Gemma, a local caregiver-support assistant for Emergyx Care. "
+            "Use conservative, practical language. Never diagnose.\n\n"
+            f"{prompt}\n\nGemma:"
+        ),
         "stream": False,
         "think": False,
-        "options": {"temperature": 0.1, "num_predict": 900},
+        "options": {
+            "temperature": 0.1,
+            "num_ctx": 2048,
+            "num_predict": 500,
+            "stop": ["\nCaregiver:"],
+        },
     }
     try:
         response = httpx.post(
-            f"{settings.ollama_base_url.rstrip('/')}/api/chat",
+            f"{settings.ollama_base_url.rstrip('/')}/api/generate",
             json=payload,
-            timeout=75.0,
+            timeout=180.0,
         )
         response.raise_for_status()
     except Exception as exc:
@@ -769,7 +769,7 @@ def _call_weekly_gemma(ctx: dict[str, Any]) -> str:
             f"Gemma weekly report generation failed for {GEMMA_WEEKLY_MODEL}: {exc}"
         ) from exc
     body = response.json()
-    text = ((body.get("message") or {}).get("content") or "").strip()
+    text = (body.get("response") or "").strip()
     lower = text.lower()
     required = ("caregiver summary", "key observations", "recommended actions", "safety disclaimer")
     if len(text.split()) < 40 or any(item not in lower for item in required):

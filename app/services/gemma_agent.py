@@ -353,7 +353,11 @@ _SYSTEM_PROMPT = (
 
 
 def _ollama_num_predict(think: bool) -> int:
-    return 768 if think else 512
+    return 480 if think else 160
+
+
+def _ollama_prompt(prompt: str) -> str:
+    return f"{_SYSTEM_PROMPT}\n\nCaregiver context/request:\n{prompt}\n\nGemma:"
 
 
 def ollama_error_message(exc: Exception) -> str:
@@ -393,30 +397,28 @@ def _call_ollama(
     prompt: str,
     *,
     think: bool = False,
-    timeout: float = 45.0,
+    timeout: float = 180.0,
 ) -> tuple[str, str]:
-    """Call local Ollama chat API. Raises on transport/HTTP errors so callers fall back."""
+    """Call local Ollama generate API. Raises on transport/HTTP errors so callers fall back."""
     settings = get_settings()
-    url = f"{settings.ollama_base_url.rstrip('/')}/api/chat"
+    url = f"{settings.ollama_base_url.rstrip('/')}/api/generate"
     payload = {
         "model": settings.gemma_model,
-        "messages": [
-            {"role": "system", "content": _SYSTEM_PROMPT},
-            {"role": "user", "content": prompt},
-        ],
+        "prompt": _ollama_prompt(prompt),
         "stream": False,
         "think": think,
         "options": {
             "temperature": 0.1,
+            "num_ctx": 1024,
             "num_predict": _ollama_num_predict(think),
+            "stop": ["\nCaregiver:", "\nUser:"],
         },
     }
     response = httpx.post(url, json=payload, timeout=timeout)
     response.raise_for_status()
     body = response.json()
-    message = body.get("message", {}) or {}
-    text = (message.get("content") or "").strip()
-    thinking = (message.get("thinking") or "").strip()
+    text = (body.get("response") or "").strip()
+    thinking = (body.get("thinking") or "").strip()
     return (text, thinking)
 
 
@@ -424,22 +426,21 @@ def _iter_ollama_events(
     prompt: str,
     *,
     think: bool = False,
-    timeout: float = 45.0,
+    timeout: float = 180.0,
 ):
-    """Yield streamed thinking/content events from local Ollama chat API."""
+    """Yield streamed thinking/content events from local Ollama generate API."""
     settings = get_settings()
-    url = f"{settings.ollama_base_url.rstrip('/')}/api/chat"
+    url = f"{settings.ollama_base_url.rstrip('/')}/api/generate"
     payload = {
         "model": settings.gemma_model,
-        "messages": [
-            {"role": "system", "content": _SYSTEM_PROMPT},
-            {"role": "user", "content": prompt},
-        ],
+        "prompt": _ollama_prompt(prompt),
         "stream": True,
         "think": think,
         "options": {
             "temperature": 0.1,
+            "num_ctx": 1024,
             "num_predict": _ollama_num_predict(think),
+            "stop": ["\nCaregiver:", "\nUser:"],
         },
     }
 
@@ -449,11 +450,10 @@ def _iter_ollama_events(
             if not line:
                 continue
             body = json.loads(line)
-            message = (body.get("message", {}) or {})
-            thinking_delta = message.get("thinking") or ""
+            thinking_delta = body.get("thinking") or ""
             if thinking_delta:
                 yield {"type": "thinking", "delta": thinking_delta}
-            content_delta = message.get("content") or ""
+            content_delta = body.get("response") or ""
             if content_delta:
                 yield {"type": "chunk", "delta": content_delta}
 

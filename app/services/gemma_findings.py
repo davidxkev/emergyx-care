@@ -313,7 +313,7 @@ def run_gemma_pattern_scan(
     used_fallback = False
     thinking = ""
     try:
-        text, thinking = _call_ollama(_prompt(payload), think=False, timeout=60.0)
+        text, thinking = _call_ollama(_prompt(payload), think=False, timeout=180.0)
         parsed = _extract_json_object(text)
     except Exception as exc:
         used_fallback = True
