@@ -1,0 +1,1 @@
+"""Emergyx Care application package."""

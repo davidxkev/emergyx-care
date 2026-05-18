@@ -1,0 +1,314 @@
+{% extends "layouts/caregiver_base.html" %}
+
+{% block title %}Emergyx Care Dashboard{% endblock %}
+
+{% block head %}
+  <script>
+    window.emergyxDashboardBoot = {
+      mode: {{ mode | tojson }},
+      threads: {{ threads | tojson }},
+      activeThread: {{ active_thread | tojson }},
+      quickPrompts: {{ quick_prompts | tojson }}
+    };
+  </script>
+{% endblock %}
+
+{% block content %}
+  <section class="page-intro">
+    <div>
+      <p class="eyebrow">{{ mode_badge.label }} — {{ mode_badge.title }}</p>
+      <h1 class="page-title">Caregiver Command Center</h1>
+      <p class="page-subtitle">Local, privacy-first visibility into presence, likely falls, caregiver alerts, and Gemma explanations.</p>
+    </div>
+  </section>
+
+  <section class="hero-card {% if hero_cards.safety.tone == 'urgent' %}is-urgent{% endif %}">
+    <div class="hero-card__main">
+      <p class="eyebrow">Current safety state</p>
+      <h2 class="hero-card__value">{{ hero_cards.safety.label }}</h2>
+      <p class="hero-card__detail">{{ hero_cards.safety.detail }}</p>
+      <p class="hero-card__note">
+        Urgent alerts are rule-based and immediate. Gemma explains and reports after safety events are logged.
+      </p>
+    </div>
+
+    <div class="hero-card__grid">
+      <article class="hero-metric">
+        <p class="hero-metric__label">Latest incident</p>
+        <p class="hero-metric__value">{{ hero_cards.incident.label }}</p>
+        <p class="hero-metric__detail">{{ hero_cards.incident.detail }}</p>
+      </article>
+      <article class="hero-metric">
+        <p class="hero-metric__label">Person presence</p>
+        <p class="hero-metric__value">{{ hero_cards.presence.label }}</p>
+        <p class="hero-metric__detail">{{ hero_cards.presence.detail }}</p>
+      </article>
+      <article class="hero-metric">
+        <p class="hero-metric__label">Alert status</p>
+        <p class="hero-metric__value">{{ hero_cards.alert.label }}</p>
+        <p class="hero-metric__detail">{{ hero_cards.alert.detail }}</p>
+      </article>
+      <article class="hero-metric">
+        <p class="hero-metric__label">Mode</p>
+        <p class="hero-metric__value">{{ mode_badge.label }}</p>
+        <p class="hero-metric__detail">{{ mode_badge.description }}</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="content-grid">
+    <div class="content-main">
+      <article id="assistant" class="panel panel--assistant">
+        <div class="panel__header">
+          <div>
+            <p class="eyebrow">Gemma Caregiver Assistant</p>
+            <h2 class="panel__title">Ask about today’s events, alerts, or safety patterns.</h2>
+            <p class="panel__description">Gemma uses local evidence only. It does not trigger urgent alerts.</p>
+          </div>
+          <div class="panel__actions">
+            <span class="status-pill {% if gemma_status.status == 'online' %}status-pill--success{% else %}status-pill--warning{% endif %}">
+              {{ "Gemma via Ollama" if gemma_status.status == "online" else "Deterministic fallback" }}
+            </span>
+            <button type="button" class="button button--ghost button--small" data-open-history>Saved chats</button>
+            <button type="button" class="button button--ghost button--small" data-new-thread>New chat</button>
+          </div>
+        </div>
+
+        <div class="assistant-note-row">
+          <span class="mini-note">Local evidence only</span>
+          <span class="mini-note">Rule-based urgent alerts stay separate</span>
+          <span class="mini-note">Not a medical device</span>
+        </div>
+
+        <div id="assistant-messages" class="chat-log"></div>
+        <div id="quick-prompts" class="prompt-chips"></div>
+
+        <form id="chat-form" class="composer">
+          <label for="chat-input" class="sr-only">Ask Gemma</label>
+          <textarea
+            id="chat-input"
+            rows="4"
+            class="composer__input"
+            placeholder="What happened today? Why was I alerted? Was the room dark?"
+          ></textarea>
+          <button id="send-button" type="submit" class="button button--primary composer__button">Ask Gemma</button>
+        </form>
+      </article>
+
+      <article id="incidents" class="panel">
+        <div class="panel__header">
+          <div>
+            <p class="eyebrow">Incident Reconstruction</p>
+            <h2 class="panel__title">
+              {% if snapshot.latest_incident %}
+                Latest likely fall in {{ snapshot.latest_incident.room }}
+              {% else %}
+                Latest likely-fall timeline
+              {% endif %}
+            </h2>
+            <p class="panel__description">Before, event, after, context, and alert are reconstructed from the local care timeline.</p>
+          </div>
+          <button id="explain-latest-button" type="button" class="button button--ghost">Explain latest incident</button>
+        </div>
+
+        {% if snapshot.latest_incident %}
+          <div class="incident-timeline">
+            <section class="timeline-step">
+              <p class="timeline-step__label">Before</p>
+              {% if snapshot.latest_incident.person_before %}
+                <h3 class="timeline-step__title">Person detected</h3>
+                <p class="timeline-step__detail">{{ snapshot.latest_incident.person_before.timestamp }}</p>
+              {% else %}
+                <h3 class="timeline-step__title">No prior presence event</h3>
+                <p class="timeline-step__detail">No earlier person detection is available in this mode.</p>
+              {% endif %}
+            </section>
+
+            <section class="timeline-step timeline-step--alert">
+              <p class="timeline-step__label">Event</p>
+              <h3 class="timeline-step__title">Likely fall detected</h3>
+              <p class="timeline-step__detail">{{ snapshot.latest_incident.event.timestamp }} · {{ snapshot.latest_incident.room }}</p>
+            </section>
+
+            <section class="timeline-step">
+              <p class="timeline-step__label">After</p>
+              {% if snapshot.latest_incident.duration_seconds is not none %}
+                <h3 class="timeline-step__title">Fall state cleared</h3>
+                <p class="timeline-step__detail">Cleared after {{ snapshot.latest_incident.duration_seconds }} seconds.</p>
+              {% elif snapshot.latest_incident.fall_clear_after %}
+                <h3 class="timeline-step__title">Fall state cleared</h3>
+                <p class="timeline-step__detail">{{ snapshot.latest_incident.fall_clear_after.timestamp }}</p>
+              {% elif snapshot.latest_incident.person_after %}
+                <h3 class="timeline-step__title">Follow-up presence event</h3>
+                <p class="timeline-step__detail">{{ snapshot.latest_incident.person_after.timestamp }}</p>
+              {% else %}
+                <h3 class="timeline-step__title">No follow-up event yet</h3>
+                <p class="timeline-step__detail">No clear after-state is available in this mode.</p>
+              {% endif %}
+            </section>
+
+            <section class="timeline-step">
+              <p class="timeline-step__label">Context</p>
+              {% if snapshot.latest_incident.light_context %}
+                <h3 class="timeline-step__title">{{ snapshot.latest_incident.light_context.category | replace('_', ' ') | title }}</h3>
+                <p class="timeline-step__detail">
+                  {{ '%.1f'|format(snapshot.latest_incident.light_context.lux) if snapshot.latest_incident.light_context.lux is not none else 'Unknown' }} lux
+                  {% if snapshot.latest_incident.light_context.timestamp %} · {{ snapshot.latest_incident.light_context.timestamp }}{% endif %}
+                </p>
+              {% else %}
+                <h3 class="timeline-step__title">No light context</h3>
+                <p class="timeline-step__detail">No local light context is available for the latest incident.</p>
+              {% endif %}
+            </section>
+
+            <section class="timeline-step">
+              <p class="timeline-step__label">Alert</p>
+              {% if snapshot.latest_incident.alert %}
+                <h3 class="timeline-step__title">{{ 'Rule-based urgent alert sent' if snapshot.latest_incident.alert.sent_success else 'Urgent alert logged locally' }}</h3>
+                <p class="timeline-step__detail">{{ snapshot.latest_incident.alert.timestamp }} · {{ snapshot.latest_incident.alert.sent_channel or 'Local log' }}</p>
+              {% else %}
+                <h3 class="timeline-step__title">No linked alert record</h3>
+                <p class="timeline-step__detail">No caregiver alert is linked to this incident yet.</p>
+              {% endif %}
+            </section>
+          </div>
+        {% else %}
+          <div class="empty-state">
+            <h3>No urgent incident recorded in this mode.</h3>
+            <p>When a likely-fall event is logged, this card will reconstruct the local timeline around it.</p>
+          </div>
+        {% endif %}
+
+        <div class="subpanel">
+          <p class="eyebrow">Gemma caregiver explanation</p>
+          <div id="explain-output" class="formatted-output">
+            {% if snapshot.latest_incident and snapshot.latest_incident.summary %}
+              {% for line in snapshot.latest_incident.summary %}
+                <p>{{ line }}</p>
+              {% endfor %}
+            {% else %}
+              <p>Generate a caregiver explanation when you want a polished summary of the latest incident.</p>
+            {% endif %}
+          </div>
+        </div>
+      </article>
+
+      <article id="reports" class="panel">
+        <div class="panel__header">
+          <div>
+            <p class="eyebrow">Daily Caregiver Report</p>
+            <h2 class="panel__title">{% if latest_report %}Latest report for {{ latest_report.date }}{% else %}Local daily summary{% endif %}</h2>
+            <p class="panel__description">A caregiver-ready summary generated from the local care timeline.</p>
+          </div>
+          <button id="generate-report-button" type="button" class="button button--primary" data-generate-report>Generate daily report</button>
+        </div>
+
+        <div id="report-output" class="formatted-output">
+          {% if latest_report %}
+            {% for paragraph in latest_report.report_text.split('\n\n') %}
+              {% if paragraph.strip() %}
+                <p>{{ paragraph }}</p>
+              {% endif %}
+            {% endfor %}
+          {% endif %}
+        </div>
+        <div id="report-empty" class="empty-state" {% if latest_report %}hidden{% endif %}>
+          <h3>No report generated yet.</h3>
+          <p>Generate today’s caregiver report from the local care timeline.</p>
+        </div>
+      </article>
+    </div>
+
+    <aside class="content-side">
+      <article id="safety" class="panel panel--compact">
+        <div class="panel__header">
+          <div>
+            <p class="eyebrow">Privacy & Failsafe</p>
+            <h2 class="panel__title">Local-first safety design</h2>
+          </div>
+        </div>
+        <ul class="fact-list">
+          <li><span>Camera</span><strong>None</strong></li>
+          <li><span>Raw timeline</span><strong>Local only</strong></li>
+          <li><span>Dashboard</span><strong>Home network only</strong></li>
+          <li><span>Urgent alerts</span><strong>Rule-based and immediate</strong></li>
+          <li><span>Gemma offline</span><strong>Alerts still work</strong></li>
+          <li><span>Safety note</span><strong>Not a medical device</strong></li>
+        </ul>
+      </article>
+
+      <article id="timeline" class="panel panel--compact">
+        <div class="panel__header">
+          <div>
+            <p class="eyebrow">Local Care Timeline</p>
+            <h2 class="panel__title">Today’s summary</h2>
+          </div>
+        </div>
+        <ul class="fact-list">
+          <li><span>Events today</span><strong>{{ timeline_summary[0].value }}</strong></li>
+          <li><span>Likely falls today</span><strong>{{ timeline_summary[1].value }}</strong></li>
+          <li><span>Alerts today</span><strong>{{ timeline_summary[2].value }}</strong></li>
+          <li><span>Latest update</span><strong>{{ mode_snapshot.last_event_age_human }}</strong></li>
+        </ul>
+      </article>
+
+      <article class="panel panel--compact">
+        <div class="panel__header">
+          <div>
+            <p class="eyebrow">Light Context</p>
+            <h2 class="panel__title">
+              {% if snapshot.latest_light %}
+                {{ snapshot.latest_light.category | replace('_', ' ') | title }}
+              {% else %}
+                No reading
+              {% endif %}
+            </h2>
+          </div>
+        </div>
+        <div class="context-copy">
+          {% if snapshot.latest_light and snapshot.latest_light.lux is not none %}
+            <p class="context-copy__value">{{ '%.1f'|format(snapshot.latest_light.lux) }} lux</p>
+            <p class="context-copy__detail">{{ snapshot.latest_light.timestamp }}</p>
+          {% else %}
+            <p class="context-copy__value">Light context unavailable</p>
+            <p class="context-copy__detail">No reading is recorded for this mode yet.</p>
+          {% endif %}
+          <p class="context-copy__note">Light is context only, not a cause.</p>
+        </div>
+      </article>
+
+      <article class="panel panel--compact">
+        <div class="panel__header">
+          <div>
+            <p class="eyebrow">Quick Actions</p>
+            <h2 class="panel__title">Caregiver controls</h2>
+          </div>
+        </div>
+        <div class="quick-actions">
+          <button id="explain-latest-button-rail" type="button" class="button button--ghost" data-explain-latest>Explain latest incident</button>
+          <button id="generate-report-button-rail" type="button" class="button button--ghost" data-generate-report>Generate daily report</button>
+          <a href="{{ url_for('dashboard_details') }}?mode={{ mode }}" class="button button--ghost">Open details</a>
+          {% if not is_live_mode %}
+            <button id="simulate-fall-button" type="button" class="button button--primary">Simulate fall</button>
+          {% endif %}
+        </div>
+      </article>
+    </aside>
+  </section>
+
+  <div id="history-drawer-backdrop" class="drawer-backdrop" hidden></div>
+  <aside id="history-drawer" class="drawer" aria-hidden="true">
+    <div class="drawer__header">
+      <div>
+        <p class="eyebrow">Saved chats</p>
+        <h2 class="drawer__title">Local caregiver conversations</h2>
+      </div>
+      <button id="history-close" type="button" class="button button--ghost button--small">Close</button>
+    </div>
+    <div id="thread-list" class="thread-list"></div>
+  </aside>
+{% endblock %}
+
+{% block page_scripts %}
+  <script src="{{ url_for('static', path='dashboard.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,77 @@
+services:
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama:/root/.ollama
+
+  ollama-pull:
+    image: ollama/ollama:latest
+    depends_on:
+      - ollama
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+      GEMMA_MODEL: ${GEMMA_MODEL:-gemma4:e2b}
+    entrypoint: ["/bin/sh", "-c"]
+    command: >
+      until ollama list >/dev/null 2>&1; do sleep 2; done;
+      ollama pull "$${GEMMA_MODEL}"
+    volumes:
+      - ollama:/root/.ollama
+
+  demo-seed:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    depends_on:
+      ollama-pull:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: sqlite:///data/emergyx_care.db
+      GEMMA_ENABLED: "true"
+      GEMMA_MODEL: ${GEMMA_MODEL:-gemma4:e2b}
+      OLLAMA_BASE_URL: http://ollama:11434
+      ENABLE_LEGACY_FDA2_SENSOR: "false"
+      MOCK_ALERT_CHANNEL: "true"
+      EMERGYX_DEMO_PROFILE: judge
+    command: ["python", "scripts/seed_demo_data.py", "--scenario", "polished_judge_demo"]
+    volumes:
+      - emergyx-data:/app/data
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    depends_on:
+      demo-seed:
+        condition: service_completed_successfully
+      ollama-pull:
+        condition: service_completed_successfully
+    environment:
+      APP_ENV: demo
+      DATABASE_URL: sqlite:///data/emergyx_care.db
+      GEMMA_ENABLED: "true"
+      GEMMA_MODEL: ${GEMMA_MODEL:-gemma4:e2b}
+      OLLAMA_BASE_URL: http://ollama:11434
+      ENABLE_LEGACY_FDA2_SENSOR: "false"
+      MOCK_ALERT_CHANNEL: "true"
+      EMERGYX_DEMO_PROFILE: judge
+      TELEGRAM_SEND_GEMMA_EXPLANATIONS: "false"
+    ports:
+      - "8000:8000"
+    volumes:
+      - emergyx-data:/app/data
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    depends_on:
+      - backend
+    ports:
+      - "3000:3000"
+
+volumes:
+  emergyx-data:
+  ollama:

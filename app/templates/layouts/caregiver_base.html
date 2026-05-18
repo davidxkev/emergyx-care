@@ -1,0 +1,59 @@
+{% set mode_route = 'dashboard_details' if active_nav == 'details' else 'dashboard' %}
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{% block title %}Emergyx Care{% endblock %}</title>
+    <meta
+      name="description"
+      content="Emergyx Care is a local, privacy-first caregiver agent for elderly home safety."
+    />
+    <link rel="stylesheet" href="{{ url_for('static', path='styles.css') }}" />
+    {% block head %}{% endblock %}
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="topbar__inner">
+          <div class="brand">
+            <a href="{{ url_for('dashboard') }}?mode={{ mode }}" class="brand__mark" aria-label="Emergyx Care home">EC</a>
+            <div class="brand__copy">
+              <p class="brand__title">Emergyx Care</p>
+              <p class="brand__subtitle">Local caregiver agent for home safety</p>
+            </div>
+          </div>
+
+          <div class="topbar__controls">
+            <div class="mode-switch" aria-label="Dashboard mode">
+              <a href="{{ url_for(mode_route) }}?mode=live" class="mode-switch__option {% if mode == 'live' %}is-active{% endif %}">
+                Live
+              </a>
+              <a href="{{ url_for(mode_route) }}?mode=demo" class="mode-switch__option {% if mode == 'demo' %}is-active{% endif %}">
+                Demo
+              </a>
+            </div>
+
+            <span class="status-pill {% if gemma_status.status == 'online' %}status-pill--success{% else %}status-pill--warning{% endif %}">
+              Gemma {{ "online" if gemma_status.status == "online" else "fallback" }}
+            </span>
+            <span class="status-pill {% if sensor_status == 'Configured' %}status-pill--success{% else %}status-pill--warning{% endif %}">
+              Sensor {{ "online" if sensor_status == "Configured" else "offline" }}
+            </span>
+
+            {% if active_nav == "details" %}
+              <a href="{{ url_for('dashboard') }}?mode={{ mode }}" class="topbar__link">Dashboard</a>
+            {% else %}
+              <a href="{{ url_for('dashboard_details') }}?mode={{ mode }}" class="topbar__link">Details</a>
+            {% endif %}
+          </div>
+        </div>
+      </header>
+
+      <main class="page">
+        {% block content %}{% endblock %}
+      </main>
+    </div>
+    {% block page_scripts %}{% endblock %}
+  </body>
+</html>

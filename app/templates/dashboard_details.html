@@ -1,0 +1,236 @@
+{% extends "layouts/caregiver_base.html" %}
+
+{% block title %}Emergyx Care Operational Details{% endblock %}
+
+{% block head %}
+  <script>
+    window.emergyxDetailsBoot = {
+      mode: {{ mode | tojson }},
+      isLiveMode: {{ is_live_mode | tojson }}
+    };
+  </script>
+{% endblock %}
+
+{% block content %}
+  <section class="page-intro">
+    <div>
+      <p class="eyebrow">{{ mode_badge.label }} — {{ mode_badge.title }}</p>
+      <h1 class="page-title">Operational Details</h1>
+      <p class="page-subtitle">Dense operational visibility for the local care timeline, reports, alerts, and caregiver tools.</p>
+    </div>
+  </section>
+
+  <section class="content-stack">
+    <article class="panel panel--compact">
+      <div class="summary-row">
+        <div class="summary-pill">
+          <span class="summary-pill__label">Events today</span>
+          <strong class="summary-pill__value">{{ today_stats.total_events_today }}</strong>
+        </div>
+        <div class="summary-pill">
+          <span class="summary-pill__label">Likely falls today</span>
+          <strong class="summary-pill__value">{{ today_stats.fall_events_today }}</strong>
+        </div>
+        <div class="summary-pill">
+          <span class="summary-pill__label">Alerts today</span>
+          <strong class="summary-pill__value">{{ timeline_summary[2].value }}</strong>
+        </div>
+        <div class="summary-pill">
+          <span class="summary-pill__label">Latest update</span>
+          <strong class="summary-pill__value">{{ mode_snapshot.last_event_age_human }}</strong>
+        </div>
+      </div>
+    </article>
+
+    <article id="ops-tools" class="panel">
+      <div class="panel__header">
+        <div>
+          <p class="eyebrow">Action Center</p>
+          <h2 class="panel__title">Run caregiver and demo actions</h2>
+          <p class="panel__description">Operational controls stay here so the main dashboard remains clean.</p>
+        </div>
+      </div>
+
+      <div class="quick-actions quick-actions--details">
+        {% if not is_live_mode %}
+          <button id="simulate-fall-button" type="button" class="button button--primary">Simulate fall</button>
+        {% endif %}
+        <button id="test-telegram-button" type="button" class="button button--ghost">Test Telegram</button>
+        <button id="explain-latest-button" type="button" class="button button--ghost">Explain latest incident</button>
+        <button id="generate-report-button" type="button" class="button button--ghost">Generate daily report</button>
+      </div>
+
+      <div class="ops-output-grid">
+        <section class="subpanel">
+          <p class="eyebrow">Action result</p>
+          <div id="tool-result-output" class="formatted-output">
+            <p>No action has been run in this session.</p>
+          </div>
+        </section>
+        <section class="subpanel">
+          <p class="eyebrow">Generated output</p>
+          <div id="agent-result-output" class="formatted-output">
+            <p>Use the controls above to generate a caregiver explanation or a daily report.</p>
+          </div>
+        </section>
+      </div>
+
+      <details class="debug-panel">
+        <summary>View raw response details</summary>
+        <pre id="debug-output" class="emergyx-pre">No raw response yet.</pre>
+      </details>
+    </article>
+
+    <section class="details-grid">
+      <div class="details-main">
+        <article id="ops-events" class="panel">
+          <div class="panel__header">
+            <div>
+              <p class="eyebrow">Local Care Timeline</p>
+              <h2 class="panel__title">Recent events</h2>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>Type</th>
+                  <th>Value</th>
+                  <th>Room</th>
+                  <th>Source</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for event in event_rows %}
+                  <tr>
+                    <td>{{ event.timestamp }}</td>
+                    <td>{{ event.label }}</td>
+                    <td>{{ event.value }}</td>
+                    <td>{{ event.room }}</td>
+                    <td><span class="table-pill {% if event.source_tone == 'live' %}table-pill--success{% elif event.source_tone == 'demo' %}table-pill--warning{% else %}table-pill--neutral{% endif %}">{{ event.source_label }}</span></td>
+                  </tr>
+                {% else %}
+                  <tr>
+                    <td colspan="5">No events are available in this mode.</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </article>
+
+        <article id="ops-alerts" class="panel">
+          <div class="panel__header">
+            <div>
+              <p class="eyebrow">Caregiver Alerts</p>
+              <h2 class="panel__title">Recent alerts</h2>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>Alert</th>
+                  <th>Severity</th>
+                  <th>Channel</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for alert in alert_rows %}
+                  <tr>
+                    <td>{{ alert.timestamp }}</td>
+                    <td>{{ alert.label }}</td>
+                    <td><span class="table-pill {% if alert.severity_tone == 'urgent' %}table-pill--urgent{% elif alert.severity_tone == 'warning' %}table-pill--warning{% else %}table-pill--success{% endif %}">{{ alert.severity_label }}</span></td>
+                    <td>{{ alert.channel or "Local log" }}</td>
+                    <td>{{ "Delivered" if alert.sent_success else "Logged only" }}</td>
+                  </tr>
+                {% else %}
+                  <tr>
+                    <td colspan="5">No alerts are available in this mode.</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </article>
+      </div>
+
+      <aside class="details-side">
+        <article class="panel panel--compact">
+          <div class="panel__header">
+            <div>
+              <p class="eyebrow">Current room state</p>
+              <h2 class="panel__title">At-a-glance context</h2>
+            </div>
+          </div>
+          <ul class="fact-list">
+            <li><span>Presence</span><strong>{% if latest_person %}{{ "Person detected" if latest_person.value == "true" else "Not detected" }}{% else %}Unknown{% endif %}</strong></li>
+            <li><span>Fall state</span><strong>{% if latest_fall %}{{ "Likely fall detected" if latest_fall.value == "true" else "No active fall state" }}{% else %}Unknown{% endif %}</strong></li>
+            <li><span>Light context</span><strong>{% if latest_light %}{{ latest_light.category | replace('_', ' ') | title }}{% else %}No reading{% endif %}</strong></li>
+            <li><span>Latest update</span><strong>{{ mode_snapshot.last_event_age_human }}</strong></li>
+          </ul>
+        </article>
+
+        <article class="panel panel--compact">
+          <div class="panel__header">
+            <div>
+              <p class="eyebrow">Incident details</p>
+              <h2 class="panel__title">
+                {% if latest_incident %}
+                  {{ latest_incident.room }}
+                {% else %}
+                  No urgent incident
+                {% endif %}
+              </h2>
+            </div>
+          </div>
+          {% if latest_incident %}
+            <div class="formatted-output">
+              {% for line in latest_incident.summary %}
+                <p>{{ line }}</p>
+              {% endfor %}
+            </div>
+          {% else %}
+            <div class="empty-state empty-state--compact">
+              <h3>No likely-fall incident is available.</h3>
+              <p>This card will summarize the latest reconstructed incident in the selected mode.</p>
+            </div>
+          {% endif %}
+        </article>
+
+        <article class="panel panel--compact">
+          <div class="panel__header">
+            <div>
+              <p class="eyebrow">Reports</p>
+              <h2 class="panel__title">Recent history</h2>
+            </div>
+          </div>
+          {% if reports %}
+            <div class="report-list">
+              {% for report in reports %}
+                <article class="report-list__item">
+                  <div>
+                    <p class="report-list__date">{{ report.date }}</p>
+                    <p class="report-list__preview">{{ report.report_text.split('\n\n')[0] }}</p>
+                  </div>
+                </article>
+              {% endfor %}
+            </div>
+          {% else %}
+            <div class="empty-state empty-state--compact">
+              <h3>No reports recorded in this mode.</h3>
+              <p>Generate a daily caregiver report from the Action Center.</p>
+            </div>
+          {% endif %}
+        </article>
+      </aside>
+    </section>
+  </section>
+{% endblock %}
+
+{% block page_scripts %}
+  <script src="{{ url_for('static', path='dashboard_details.js') }}"></script>
+{% endblock %}
