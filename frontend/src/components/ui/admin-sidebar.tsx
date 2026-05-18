@@ -3,7 +3,7 @@
 import { memo } from 'react';
 import { useTheme } from 'next-themes';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import {
   Sidebar,
   SidebarContent,
@@ -31,7 +31,7 @@ import {
 
 const menuItems = [
   { title: 'Overview', icon: LayoutDashboard, href: '/dashboard' },
-  { title: 'Chat', icon: MessageSquare, href: '/chat?mode=live' },
+  { title: 'Chat', icon: MessageSquare, href: '/chat' },
   { title: 'Reports', icon: FileText, href: '/reports' },
   { title: 'Sensors', icon: Database, href: '/sensors' },
   { title: 'Residents', icon: User, href: '/residents' },
@@ -41,7 +41,15 @@ const menuItems = [
 export const AdminSidebar = memo(() => {
   const { theme, setTheme } = useTheme();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { isMobile, setOpenMobile } = useSidebar();
+  const mode = searchParams.get('mode') === 'live' ? 'live' : 'demo';
+  const withMode = (href: string) => {
+    const [path, query = ''] = href.split('?');
+    const params = new URLSearchParams(query);
+    params.set('mode', mode);
+    return `${path}?${params.toString()}`;
+  };
   const closeMobileSidebar = () => {
     if (isMobile) {
       setOpenMobile(false);
@@ -54,7 +62,7 @@ export const AdminSidebar = memo(() => {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
-              <Link prefetch={false} href="/dashboard" onClick={closeMobileSidebar}>
+              <Link prefetch={false} href={withMode('/dashboard')} onClick={closeMobileSidebar}>
                 <div className="bg-primary text-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
                   <LayoutDashboard className="h-5 w-5" />
                 </div>
@@ -85,7 +93,7 @@ export const AdminSidebar = memo(() => {
                 return (
                   <SidebarMenuItem key={item.href}>
                     <SidebarMenuButton asChild isActive={isActive}>
-                      <Link prefetch={false} href={item.href} onClick={closeMobileSidebar}>
+                      <Link prefetch={false} href={withMode(item.href)} onClick={closeMobileSidebar}>
                         <Icon />
                         <span>{item.title}</span>
                       </Link>

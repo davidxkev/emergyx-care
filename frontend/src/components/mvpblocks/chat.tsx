@@ -36,7 +36,7 @@ import type {
 export function ChatDashboard() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const mode: Mode = searchParams.get('mode') === 'demo' ? 'demo' : 'live';
+  const mode: Mode = searchParams.get('mode') === 'live' ? 'live' : 'demo';
   const modeMeta = modeBadge(mode);
 
   const [searchQuery, setSearchQuery] = useState('');

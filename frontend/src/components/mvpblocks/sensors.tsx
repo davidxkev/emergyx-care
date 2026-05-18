@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   Activity,
   AlertCircle,
@@ -649,6 +650,8 @@ function buildSensorRecords(
 }
 
 export function SensorsDashboard() {
+  const searchParams = useSearchParams();
+  const mode = searchParams.get('mode') === 'live' ? 'live' : 'demo';
   const isLivePollingRef = useRef(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -851,13 +854,14 @@ export function SensorsDashboard() {
         ids.add(sensor.sensor_id);
       }
     }
-    for (const event of liveEvents) {
+    const visibleEvents = mode === 'demo' ? demoEvents : liveEvents;
+    for (const event of visibleEvents) {
       if (!deleted.has(event.sensor_id)) {
         ids.add(event.sensor_id);
       }
     }
     return ids;
-  }, [health, liveEvents, deletedSensorIds]);
+  }, [health, liveEvents, demoEvents, deletedSensorIds, mode]);
 
   const sensors = useMemo(() => {
     const recordsById = new Map(allSensors.map((sensor) => [sensor.sensorId, sensor]));
@@ -1495,8 +1499,12 @@ export function SensorsDashboard() {
       icon: Home,
     },
     {
-      label: 'Configured live sensors',
-      value: String(health?.fda2_sensors?.length ?? 0),
+      label: mode === 'demo' ? 'Demo sensors' : 'Configured live sensors',
+      value: String(
+        mode === 'demo'
+          ? new Set(demoEvents.map((event) => event.sensor_id)).size
+          : (health?.fda2_sensors?.length ?? 0),
+      ),
       icon: Shield,
     },
   ];
@@ -1791,25 +1799,33 @@ export function SensorsDashboard() {
                     const liveTimestampForSensor = latestLiveTimestampBySensor.get(
                       sensor.sensorId,
                     );
-                    const sensorConfiguredLive = sensor.configuredLive;
+                    const sensorConfiguredLive = mode === 'demo' ? true : sensor.configuredLive;
                     const sensorStatusTimestamp = sensorConfiguredLive
-                      ? liveTimestampForSensor
+                      ? mode === 'demo'
+                        ? sensor.lastSeen
+                        : liveTimestampForSensor
                       : sensor.lastSeen;
-                    const sensorOnline = isSensorOnline(
-                      sensorStatusTimestamp,
-                      onlineAgeSeconds,
-                    );
-                    const statusClass = !sensorConfiguredLive
+                    const sensorOnline =
+                      mode === 'demo'
+                        ? Boolean(sensorStatusTimestamp)
+                        : isSensorOnline(sensorStatusTimestamp, onlineAgeSeconds);
+                    const statusClass = mode === 'demo'
+                      ? 'rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700 dark:border-blue-900/50 dark:bg-blue-900/20 dark:text-blue-300'
+                      : !sensorConfiguredLive
                       ? 'rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700 dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-300'
                       : sensorOnline
                         ? 'rounded-md border border-green-200 bg-green-50 px-2 py-1 text-xs font-semibold text-green-700 dark:border-green-900/50 dark:bg-green-900/20 dark:text-green-300'
                         : 'rounded-md border border-red-200 bg-red-50 px-2 py-1 text-xs font-semibold text-red-700 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-300';
-                    const statusTitle = !sensorConfiguredLive
+                    const statusTitle = mode === 'demo'
+                      ? 'Seeded demo sensor from the reproducible judge dataset'
+                      : !sensorConfiguredLive
                       ? 'Sensor is not configured in backend live ingestion yet'
                       : sensorOnline
                         ? 'Receiving recent sensor events'
                         : 'No recent live sensor events detected';
-                    const statusLabel = !sensorConfiguredLive
+                    const statusLabel = mode === 'demo'
+                      ? 'Demo'
+                      : !sensorConfiguredLive
                       ? 'Not configured'
                       : sensorOnline
                         ? 'Online'
@@ -1821,7 +1837,7 @@ export function SensorsDashboard() {
                     const selectedColor = colorForSensor(sensor.sensorId);
                     const feedback = ledFeedback[sensor.sensorId];
                     const liveReadings = latestLiveReadingsForSensor(
-                      latestLiveEvents,
+                      mode === 'demo' ? demoEvents : latestLiveEvents,
                       sensor.sensorId,
                     );
                     const deletingThisSensor = deletingSensorId === sensor.sensorId;
@@ -1855,7 +1871,7 @@ export function SensorsDashboard() {
                               >
                                 {statusLabel}
                               </button>
-                              {!sensorConfiguredLive ? (
+                              {mode !== 'demo' && !sensorConfiguredLive ? (
                                 <Button
                                   type="button"
                                   size="sm"
@@ -1933,7 +1949,10 @@ export function SensorsDashboard() {
                                   Sources: {sensor.sources.map(prettySource).join(', ')}
                                 </p>
                                 <p className="text-xs text-muted-foreground">
-                                  Last live update: {liveTimestampForSensor ?? 'none yet'}
+                                Last {mode === 'demo' ? 'demo' : 'live'} update:{' '}
+                                {mode === 'demo'
+                                  ? sensor.lastSeen ?? 'none yet'
+                                  : liveTimestampForSensor ?? 'none yet'}
                                 </p>
                                 {sensor.host ? (
                                   <p className="text-xs text-muted-foreground">
@@ -1975,7 +1994,11 @@ export function SensorsDashboard() {
                                                   : 'rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] font-semibold text-amber-700 dark:text-amber-300'
                                               }
                                             >
-                                              {readingFresh ? 'Live' : 'Stale'}
+                                              {mode === 'demo'
+                                                ? 'Demo'
+                                                : readingFresh
+                                                  ? 'Live'
+                                                  : 'Stale'}
                                             </span>
                                           </div>
                                           <p className="mt-2 text-2xl font-bold tracking-tight">
@@ -1987,7 +2010,9 @@ export function SensorsDashboard() {
                                             ) : null}
                                           </p>
                                           <p className="mt-1 text-[11px] text-muted-foreground">
-                                            {reading.ageSeconds === null
+                                            {mode === 'demo'
+                                              ? 'Seeded demo reading'
+                                              : reading.ageSeconds === null
                                               ? reading.timestamp
                                               : `${reading.ageSeconds}s ago`}
                                           </p>
@@ -1997,12 +2022,12 @@ export function SensorsDashboard() {
                                   </div>
                                 ) : sensorConfiguredLive ? (
                                   <div className="max-w-xl rounded-lg border border-dashed border-border bg-card/70 p-3 text-xs text-muted-foreground">
-                                    Waiting for live telemetry values from this sensor.
+                                    Waiting for {mode === 'demo' ? 'demo' : 'live'} telemetry values from this sensor.
                                   </div>
                                 ) : null}
                               </div>
                             ) : null}
-                            {!sensorConfiguredLive ? (
+                            {mode !== 'demo' && !sensorConfiguredLive ? (
                               <p className="text-xs text-amber-700 dark:text-amber-300">
                                 Live setup pending for this sensor.
                               </p>

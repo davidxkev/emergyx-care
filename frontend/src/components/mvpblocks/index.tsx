@@ -203,7 +203,7 @@ function StatusPill({
 export default function AdminDashboard() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const mode = searchParams.get('mode') === 'demo' ? 'demo' : 'live';
+  const mode = searchParams.get('mode') === 'live' ? 'live' : 'demo';
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [status, setStatus] = useState<AgentStatus | null>(null);
@@ -536,18 +536,25 @@ export default function AdminDashboard() {
   }, [alerts, search]);
 
   const stateSummary = assignedSnapshot ? snapshotState(assignedSnapshot) : null;
-  const freshLiveData = hasFreshLiveData(assignedSnapshot);
+  const hasDemoData =
+    mode === 'demo' &&
+    (assignedEvents.length > 0 || Boolean(assignedSnapshot?.last_event_timestamp));
+  const freshLiveData = mode === 'demo' ? hasDemoData : hasFreshLiveData(assignedSnapshot);
   const latestBySensor = useMemo(
     () => collectLatestBySensor(assignedEvents, assignedSnapshot),
     [assignedEvents, assignedSnapshot],
   );
   const latestLiveTimestampMs = parseTimestampMs(assignedSnapshot?.last_event_timestamp);
   const snapshotIsFreshEnough =
+    mode === 'demo' ||
     (assignedSnapshot?.last_event_age_seconds ?? Number.POSITIVE_INFINITY) <=
-    LIVE_SENSOR_ONLINE_AGE_SECONDS;
+      LIVE_SENSOR_ONLINE_AGE_SECONDS;
   const activeSensors = Array.from(latestBySensor.entries()).filter(([, item]) => {
     if (!snapshotIsFreshEnough || latestLiveTimestampMs === null) {
       return false;
+    }
+    if (mode === 'demo') {
+      return true;
     }
     const ageMs = latestLiveTimestampMs - item.timestampMs;
     return ageMs >= 0 && ageMs <= LIVE_SENSOR_ONLINE_AGE_SECONDS * 1000;
@@ -580,7 +587,9 @@ export default function AdminDashboard() {
       title: 'Safety Status',
       value: freshLiveData ? (stateSummary?.safety ?? 'No data') : `Waiting for ${mode} data`,
       change:
-        assignedSnapshot?.last_event_age_human != null
+        mode === 'demo' && freshLiveData
+          ? 'Seeded demo timeline'
+          : assignedSnapshot?.last_event_age_human != null
           ? `Updated ${assignedSnapshot.last_event_age_human}`
           : `Waiting for ${mode} data`,
       changeType: freshLiveData
@@ -616,8 +625,14 @@ export default function AdminDashboard() {
     },
     {
       title: 'Light Status',
-      value: freshLiveData ? lightValue(assignedSnapshot) : `No fresh ${mode} data`,
-      change: freshLiveData ? lightDetail(assignedSnapshot) : 'Waiting for sensor reconnect',
+      value: freshLiveData ? lightValue(assignedSnapshot) : `No ${mode} data`,
+      change: freshLiveData
+        ? mode === 'demo'
+          ? 'Seeded sensor context'
+          : lightDetail(assignedSnapshot)
+        : mode === 'demo'
+          ? 'Waiting for seeded demo rows'
+          : 'Waiting for sensor reconnect',
       changeType: freshLiveData ? ('positive' as const) : ('negative' as const),
       icon: Lightbulb,
       color: 'text-amber-500',
@@ -627,13 +642,15 @@ export default function AdminDashboard() {
     },
     {
       title: 'Last Incident',
-      value: freshLiveData ? (stateSummary?.incident ?? 'No urgent incident') : `No fresh ${mode} data`,
+      value: freshLiveData ? (stateSummary?.incident ?? 'No urgent incident') : `No ${mode} data`,
       change:
         assignedSnapshot?.latest_incident?.room
           ? `${formatRoomName(assignedSnapshot.latest_incident.room, roomDisplayNames)} · ${assignedSnapshot.latest_incident.alert?.sent_success ? 'Alert sent' : 'No alert sent'}`
           : freshLiveData
             ? 'No likely fall recorded'
-            : 'Waiting for sensor reconnect',
+            : mode === 'demo'
+              ? 'Waiting for seeded demo rows'
+              : 'Waiting for sensor reconnect',
       changeType: freshLiveData
         ? snapshot?.latest_incident
           ? ('negative' as const)
@@ -734,7 +751,7 @@ export default function AdminDashboard() {
                   <RevenueChart events={assignedEvents} snapshot={assignedSnapshot} />
                   <UsersTable
                     events={visibleEvents}
-                    onOpenResidents={() => router.push('/residents')}
+                    onOpenResidents={() => router.push(`/residents?mode=${mode}`)}
                   />
                 </div>
 
@@ -743,7 +760,7 @@ export default function AdminDashboard() {
                     onRefresh={() => void handleRefresh()}
                     onExport={handleExport}
                     onGenerateWeeklyPdf={() => void handleGenerateWeeklyPdf()}
-                    onOpenResidents={() => router.push('/residents')}
+                    onOpenResidents={() => router.push(`/residents?mode=${mode}`)}
                     onOpenChat={() => router.push(`/chat?mode=${mode}`)}
                     onRunDemoFall={() => void handleDemoScenario('fall')}
                     onRunDemoScan={() => void handleDemoScenario('pattern-scan')}

@@ -9,7 +9,7 @@ MODEL="${GEMMA_MODEL:-gemma4:e2b}"
 echo "Starting Emergyx Care judge demo with Gemma model: ${MODEL}"
 echo "This may take several minutes the first time while Docker builds and Ollama pulls the model."
 
-GEMMA_MODEL="$MODEL" docker compose up --build -d
+GEMMA_MODEL="$MODEL" docker compose up --build -d --force-recreate demo-seed backend frontend
 
 echo
 echo "Emergyx Care demo is starting."

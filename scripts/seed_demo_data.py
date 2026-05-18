@@ -260,6 +260,65 @@ def add_gemma_finding(session: Session, today: date, alert: Alert | None) -> Non
     session.commit()
 
 
+def add_current_demo_status(session: Session) -> None:
+    """Keep judge demo mode visually current without requiring live hardware."""
+    current_rows = [
+        {
+            "sensor_id": "demo_fda2_bedroom",
+            "room": "bedroom",
+            "event_type": "person_present",
+            "value": True,
+            "metadata_json": {"seeded": True, "scenario": "current_demo_status"},
+        },
+        {
+            "sensor_id": "demo_fda2_living_room",
+            "room": "living_room",
+            "event_type": "illuminance",
+            "value": 82.5,
+            "metadata_json": {"seeded": True, "scenario": "current_demo_status", "unit": "lux"},
+        },
+        {
+            "sensor_id": "demo_bha2_bedside",
+            "room": "bedroom",
+            "event_type": "heart_rate",
+            "value": 86,
+            "metadata_json": {"seeded": True, "scenario": "current_demo_status", "unit": "bpm"},
+        },
+        {
+            "sensor_id": "demo_bha2_bedside",
+            "room": "bedroom",
+            "event_type": "respiration_rate",
+            "value": 13.7,
+            "metadata_json": {
+                "seeded": True,
+                "scenario": "current_demo_status",
+                "unit": "breaths/min",
+            },
+        },
+        {
+            "sensor_id": "demo_bha2_bedside",
+            "room": "bedroom",
+            "event_type": "distance",
+            "value": 53.3,
+            "metadata_json": {"seeded": True, "scenario": "current_demo_status", "unit": "cm"},
+        },
+        {
+            "sensor_id": "demo_mmwave_bathroom",
+            "room": "bathroom",
+            "event_type": "person_present",
+            "value": False,
+            "metadata_json": {"seeded": True, "scenario": "current_demo_status"},
+        },
+    ]
+    for row in current_rows:
+        create_event(
+            session,
+            source=DEMO_SOURCE,
+            trigger_alerts=False,
+            **row,
+        )
+
+
 def clear_seeded(session: Session) -> None:
     session.exec(delete(ChatMessage).where(ChatMessage.metadata_json.contains('"seeded"')))
     session.exec(delete(ChatThread).where(ChatThread.metadata_json.contains('"seeded"')))
@@ -456,6 +515,7 @@ def seed(*, reset: bool = True) -> None:
         add_weekly_report(session, today)
         add_chat(session, today)
         add_gemma_finding(session, today, latest_alert)
+        add_current_demo_status(session)
         session.commit()
 
 

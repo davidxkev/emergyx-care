@@ -77,7 +77,7 @@ function dateRangeLabel(report: WeeklyReportRead) {
 
 export function ReportsDashboard() {
   const searchParams = useSearchParams();
-  const mode: Mode = searchParams.get('mode') === 'demo' ? 'demo' : 'live';
+  const mode: Mode = searchParams.get('mode') === 'live' ? 'live' : 'demo';
   const [searchQuery, setSearchQuery] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [dailyReports, setDailyReports] = useState<DailyReportRead[]>([]);
