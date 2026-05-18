@@ -45,20 +45,11 @@ The verification script should finish with a success message.
 
 ## Demo Media
 
-Suggested media to include in a project page, release, or pitch:
+Demo video:
 
-| Asset | Path or link |
-| --- | --- |
-| Demo video | Record a short walkthrough of the sensor-free demo flow |
-| Care Overview screenshot | `docs/screenshots/overview.png` |
-| Gemma Assistant screenshot | `docs/screenshots/chat.png` |
-| Reports screenshot | `docs/screenshots/reports.png` |
-| Sensors screenshot | `docs/screenshots/sensors.png` |
-| Residents screenshot | `docs/screenshots/residents.png` |
-| Settings screenshot | `docs/screenshots/settings.png` |
-
-When screenshots are available, add them near the top of this README so visitors
-can see the working product before reading setup details.
+```text
+https://www.youtube.com/watch?v=sXkUNRDJ0LE
+```
 
 ## Why It Matters
 
@@ -606,9 +597,7 @@ Recommended project materials:
 
 - The repository.
 - This README.
-- A short demo video.
-- Screenshots of Care Overview, Gemma Assistant, Reports, Sensors, Residents,
-  and Settings.
+- Demo video: `https://www.youtube.com/watch?v=sXkUNRDJ0LE`.
 - Clear note that the recommended path is demo mode without sensors.
 
 Recommended demo command sequence:

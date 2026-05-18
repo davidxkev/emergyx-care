@@ -63,6 +63,7 @@ class Settings(BaseSettings):
     gemma_first_notifications: bool = False
 
     dashboard_refresh_seconds: int = 10
+    public_dashboard_url: str | None = None
 
     model_config = SettingsConfigDict(
         env_file=".env",

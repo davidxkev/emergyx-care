@@ -118,6 +118,13 @@ def _local_network_host() -> str:
 
 
 def _dashboard_url(path: str = "/dashboard?mode=live") -> str:
+    settings = get_settings()
+    public_url = (settings.public_dashboard_url or "").strip()
+    if public_url:
+        if path == "/dashboard?mode=live":
+            return public_url
+        base = public_url.split("?", 1)[0].rstrip("/")
+        return f"{base}{path}"
     return f"http://{_local_network_host()}:3000{path}"
 
 
@@ -186,7 +193,14 @@ class TelegramCommandBot:
 
     def _reply(self, chat_id: str, text: str) -> None:
         for chunk in _chunk_text(text):
-            send_telegram_message(chunk, chat_id=chat_id)
+            self._telegram_post(
+                "sendMessage",
+                {
+                    "chat_id": chat_id,
+                    "text": chunk,
+                    "disable_web_page_preview": True,
+                },
+            )
 
     def _answer_callback_query(self, callback_query_id: str, text: str = "Working...") -> None:
         self._telegram_post(
@@ -412,6 +426,7 @@ class TelegramCommandBot:
             "cmd:explain": "/explain",
             "cmd:report": "/report",
             "cmd:dashboard": "/dashboard",
+            "cmd:mock_fall_explain": "__mock_fall_explain__",
             "cmd:help": "/help",
         }
         command = command_map.get(data)
@@ -420,7 +435,16 @@ class TelegramCommandBot:
             return
 
         try:
-            response = self._handle_command(command)
+            if command == "__mock_fall_explain__":
+                response = (
+                    "Gemma 4 E2B explanation\n\n"
+                    "The alert pattern is consistent with a possible fall because a sudden fall-like signal was followed by no clear movement for approximately 2 minutes. "
+                    "This could represent a true fall, delayed recovery movement, or an unusual motion pattern that needs caregiver confirmation.\n\n"
+                    "Recommended next step: check on David immediately, confirm whether this was a true fall or false alarm, and review the bathroom area for lighting, rugs, wet flooring, or missing support rails.\n\n"
+                    "Not a medical diagnosis."
+                )
+            else:
+                response = self._handle_command(command)
         except Exception as exc:
             LOGGER.exception("Telegram callback failed: %s", exc)
             response = (

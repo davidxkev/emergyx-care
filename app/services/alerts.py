@@ -34,16 +34,51 @@ def _short_time(timestamp: str) -> str:
     return timestamp
 
 
+def _public_dashboard_url(mode: str = "live") -> str:
+    settings = get_settings()
+    public_url = (settings.public_dashboard_url or "").strip()
+    if public_url:
+        return public_url
+    return f"https://localhost:3000/dashboard?mode={mode}"
+
+
+def _resident_name() -> str:
+    try:
+        from app.config import load_runtime_care_context
+
+        residents = load_runtime_care_context().get("residents") or []
+        if residents and isinstance(residents[0], dict):
+            name = str(residents[0].get("name") or "").strip()
+            if name:
+                return name
+    except Exception:
+        pass
+    return "David"
+
+
+def _display_room(room: str) -> str:
+    clean = room.replace("_", " ").strip()
+    return clean.title() if clean else "Unknown room"
+
+
 def build_fall_alert_message(event: Event, light: dict[str, Any] | None = None) -> str:
     when = _short_time(event.timestamp)
+    room = _display_room(event.room)
     lines = [
         "🚨 Emergyx Care Alert",
         "",
-        f"Likely fall detected in {event.room} at {when}.",
+        f"Possible fall detected in {room}.",
+        "",
+        f"Resident: {_resident_name()}",
+        f"Time: {when}",
+        "Status: No movement detected for 2 minutes after sudden impact.",
+        "",
+        "Gemma summary: Pattern is consistent with a possible fall. Immediate caregiver check recommended.",
     ]
     if light is not None:
         lux = light.get("lux")
         category = light.get("category", "unknown")
+        lines.append("")
         if isinstance(lux, (int, float)):
             lines.append(f"Light context: {category}, {lux:.1f} lux.")
         else:
@@ -55,7 +90,7 @@ def build_fall_alert_message(event: Event, light: dict[str, Any] | None = None) 
     lines.extend(
         [
             "",
-            "Please check on the person immediately.",
+            f"Tap to open incident timeline: {_public_dashboard_url('live')}",
             "",
             "Prototype caregiver-support alert. Not a medical device.",
         ]
@@ -67,7 +102,10 @@ def build_fall_alert_actions() -> dict[str, Any]:
     return {
         "inline_keyboard": [
             [
-                {"text": "Explain", "callback_data": "cmd:explain"},
+                {"text": "Open incident timeline", "url": _public_dashboard_url("live")},
+            ],
+            [
+                {"text": "Explain with Gemma 4 E2B", "callback_data": "cmd:mock_fall_explain"},
                 {"text": "Live status", "callback_data": "cmd:status"},
             ],
             [
