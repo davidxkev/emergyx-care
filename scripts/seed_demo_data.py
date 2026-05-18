@@ -87,7 +87,7 @@ def demo_care_context(now: str) -> dict[str, object]:
         "residents": [
             {
                 "id": "resident_david",
-                "name": "David Cohen",
+                "name": "David",
                 "rooms": ["bedroom", "bathroom", "living_room"],
                 "context": (
                     "David is an 82-year-old resident in the demo home. He usually rests in the bedroom, "
@@ -350,10 +350,10 @@ def seed(*, reset: bool = True) -> None:
                 "weekly_day": 0,
                 "weekly_time": "09:00",
                 "weekly_send_telegram": False,
-                "pattern_enabled": True,
+                "pattern_enabled": False,
                 "pattern_interval_minutes": 60,
                 "pattern_send_telegram": False,
-                "last_pattern_summary": "Demo pattern monitor is enabled for the judge walkthrough.",
+                "last_pattern_summary": "Demo pattern monitor is ready. Run it from Reports when Gemma has enough local memory.",
             }
         )
 

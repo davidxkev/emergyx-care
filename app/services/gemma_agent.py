@@ -356,6 +356,24 @@ def _ollama_num_predict(think: bool) -> int:
     return 768 if think else 512
 
 
+def ollama_error_message(exc: Exception) -> str:
+    message = str(exc)
+    response = getattr(exc, "response", None)
+    detail = ""
+    if response is not None:
+        try:
+            detail = str(response.text or "").strip()
+        except Exception:
+            detail = ""
+    combined = f"{message} {detail}".lower()
+    if "requires more system memory" in combined or "model request too large" in combined:
+        return (
+            "Gemma 4 E2B is installed, but Ollama could not load it because Docker does not have "
+            "enough memory. Increase Docker Desktop memory to at least 12 GB, then restart the demo."
+        )
+    return f"Gemma/Ollama is unavailable right now: {message}"
+
+
 def _call_ollama(
     prompt: str,
     *,
@@ -863,7 +881,33 @@ def answer_caregiver_question(
     settings = get_settings()
     if not settings.gemma_enabled:
         raise RuntimeError("Gemma/Ollama chat is disabled. Enable Gemma in Settings before using chat.")
-    text, thinking_text = _call_ollama(prompt, think=think)
+    try:
+        text, thinking_text = _call_ollama(prompt, think=think)
+    except Exception as exc:
+        message = ollama_error_message(exc)
+        _save_agent_decision(
+            session,
+            decision_type="caregiver_qa",
+            related_event_id=None,
+            input_summary=f"question={question[:240]}",
+            output_text=message,
+            model_name=f"unavailable:{settings.gemma_model}",
+            used_mock=True,
+            tools_used=tools_used,
+        )
+        return _wrap_response(
+            text=message,
+            used_mock=True,
+            model_name=f"unavailable:{settings.gemma_model}",
+            tools_used=tools_used,
+            extra={
+                "answer": message,
+                "question": question,
+                "evidence": evidence,
+                "snapshot": snapshot,
+                "thinking": None,
+            },
+        )
     if not text:
         raise RuntimeError("Gemma/Ollama returned an empty chat response.")
     if _meta_response_detected(text):
@@ -950,7 +994,7 @@ def stream_answer_caregiver_question(
                 yield {"type": "chunk", "delta": delta}
     except Exception as exc:
         LOGGER.warning("Ollama streaming unavailable for chat: %s", exc)
-        yield {"type": "error", "error": f"Gemma/Ollama chat failed: {exc}"}
+        yield {"type": "error", "error": ollama_error_message(exc)}
         return None
 
     text = "".join(parts).strip()

@@ -166,6 +166,73 @@ def _prompt(payload: dict[str, Any]) -> str:
     )
 
 
+def _fallback_findings_payload(payload: dict[str, Any], error_message: str) -> dict[str, Any]:
+    week = payload.get("week_trends") if isinstance(payload.get("week_trends"), dict) else {}
+    today = payload.get("today_trends") if isinstance(payload.get("today_trends"), dict) else {}
+    findings: list[dict[str, Any]] = []
+
+    safety = week.get("safety") if isinstance(week.get("safety"), dict) else {}
+    fall_count = int(safety.get("falls_week") or safety.get("likely_falls_week") or 0)
+    if fall_count > 0:
+        findings.append(
+            {
+                "pattern_type": "fall_risk",
+                "severity": "high" if fall_count >= 2 else "medium",
+                "title": "Likely fall pattern needs review",
+                "summary": (
+                    f"Emergyx recorded {fall_count} likely-fall signal(s) in the demo week. "
+                    "A caregiver should review the incident timeline and confirm whether each signal was a true fall or a false alarm."
+                ),
+                "evidence": [f"{fall_count} likely-fall signal(s) recorded this week"],
+                "caregiver_action": "Review the incident timeline, confirm true fall versus false alarm, and inspect room fall risks.",
+                "send_alert": fall_count >= 2,
+                "telegram_message": "Emergyx Care pattern: repeated likely-fall signals need caregiver review.",
+                "dashboard_message": "Repeated likely-fall signals need caregiver review.",
+            }
+        )
+
+    nighttime = today.get("nighttime") if isinstance(today.get("nighttime"), dict) else {}
+    night_readings = int(nighttime.get("night_sensor_readings") or nighttime.get("total_events") or 0)
+    bathroom_events = int(nighttime.get("bathroom_events") or 0)
+    if bathroom_events > 0 or night_readings >= 5:
+        findings.append(
+            {
+                "pattern_type": "nighttime_activity",
+                "severity": "medium",
+                "title": "Nighttime movement pattern",
+                "summary": (
+                    "Nighttime movement was recorded in the demo data. This is useful caregiver context, "
+                    "especially when reviewed alongside fall-like signals and room safety."
+                ),
+                "evidence": [f"{night_readings} nighttime sensor reading(s)", f"{bathroom_events} bathroom-related event(s)"],
+                "caregiver_action": "Review the bathroom path, lighting, rugs, and support rails before the next night.",
+                "send_alert": False,
+                "telegram_message": "",
+                "dashboard_message": "Nighttime activity pattern recorded for caregiver review.",
+            }
+        )
+
+    if not findings:
+        findings.append(
+            {
+                "pattern_type": "other",
+                "severity": "info",
+                "title": "Demo data reviewed",
+                "summary": "The local demo timeline was reviewed, but no urgent new pattern was detected.",
+                "evidence": ["Seeded demo data is available"],
+                "caregiver_action": "Continue with the demo walkthrough and review the weekly report.",
+                "send_alert": False,
+                "telegram_message": "",
+                "dashboard_message": "Demo data reviewed.",
+            }
+        )
+
+    return {
+        "overall_summary": f"Gemma was unavailable, so Emergyx used local deterministic analysis. {error_message}",
+        "findings": findings[:3],
+    }
+
+
 def _save_decision(
     session: Session,
     *,
@@ -241,10 +308,18 @@ def run_gemma_pattern_scan(
         "recent_events": recent_events[-80:],
     }
 
-    from app.services.gemma_agent import _call_ollama
+    from app.services.gemma_agent import _call_ollama, ollama_error_message
 
-    text, thinking = _call_ollama(_prompt(payload), think=False, timeout=60.0)
-    parsed = _extract_json_object(text)
+    used_fallback = False
+    thinking = ""
+    try:
+        text, thinking = _call_ollama(_prompt(payload), think=False, timeout=60.0)
+        parsed = _extract_json_object(text)
+    except Exception as exc:
+        used_fallback = True
+        LOGGER.warning("Gemma pattern scan unavailable; using deterministic fallback: %s", exc)
+        parsed = _fallback_findings_payload(payload, ollama_error_message(exc))
+        text = json.dumps(parsed, sort_keys=True, default=str)
     findings_payload = parsed.get("findings") or []
     if not isinstance(findings_payload, list):
         raise ValueError("Gemma findings response did not include a findings array.")
@@ -314,6 +389,7 @@ def run_gemma_pattern_scan(
                             "pattern_type": pattern_type,
                             "telegram_requested": send_telegram,
                             "model_name": settings.gemma_model,
+                            "used_fallback": used_fallback,
                         }
                     ),
                     sort_keys=True,
@@ -337,6 +413,7 @@ def run_gemma_pattern_scan(
         metadata={
             "input_summary": f"mode={mode} findings={len(saved)} alerts={len(alerts_created)}",
             "overall_summary": parsed.get("overall_summary"),
+            "used_fallback": used_fallback,
             "new_finding_ids": [finding.id for finding in saved],
             "alert_ids": [alert.id for alert in alerts_created],
         },
@@ -344,7 +421,8 @@ def run_gemma_pattern_scan(
 
     return {
         "success": True,
-        "model_name": settings.gemma_model,
+        "model_name": f"fallback:{settings.gemma_model}" if used_fallback else settings.gemma_model,
+        "used_mock": used_fallback,
         "created_at": current_timestamp(),
         "overall_summary": str(parsed.get("overall_summary") or "").strip(),
         "findings": saved,

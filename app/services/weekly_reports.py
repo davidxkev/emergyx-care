@@ -779,6 +779,31 @@ def _call_weekly_gemma(ctx: dict[str, Any]) -> str:
     return text
 
 
+def _fallback_weekly_gemma(ctx: dict[str, Any], error_message: str) -> str:
+    totals = ctx.get("totals") or {}
+    scores = ctx.get("scores") or {}
+    episodes = ctx.get("fall_episodes") or []
+    night = ctx.get("nighttime") or {}
+    raw_falls = int(totals.get("raw_fall_detections") or 0)
+    episode_count = len(episodes)
+    return (
+        "Caregiver summary\n"
+        f"Emergyx reviewed the local weekly demo data. It found {episode_count} likely fall episode(s) "
+        f"based on {raw_falls} raw fall-like detection(s). Sensor readings and alerts are available locally, "
+        "but Gemma could not load on this machine during PDF generation.\n\n"
+        "Key observations\n"
+        f"- Resident Safety Score: {scores.get('resident_safety_score', 'n/a')} / 100.\n"
+        f"- System Reliability Score: {scores.get('system_reliability_score', 'n/a')} / 100.\n"
+        f"- Nighttime sensor readings recorded: {night.get('night_sensor_readings', 0)}.\n\n"
+        "Recommended actions\n"
+        "- High: Review each likely-fall episode timeline and confirm true fall versus false alarm.\n"
+        "- Medium: Inspect lighting, rugs, obstacles, and support rails in the rooms with sensor activity.\n"
+        "- Low: Re-run the demo after increasing Docker memory to at least 12 GB for full Gemma analysis.\n\n"
+        "Safety disclaimer\n"
+        f"{DISCLAIMER} Gemma/Ollama note: {error_message}"
+    )
+
+
 def _paragraph(text: str, style: ParagraphStyle) -> Paragraph:
     escaped = (
         str(text)
@@ -1071,14 +1096,21 @@ def generate_weekly_pdf_report(
         night_start_hour=night_start_hour,
         night_end_hour=night_end_hour,
     )
-    gemma_text = _call_weekly_gemma(ctx)
+    used_mock = False
+    try:
+        gemma_text = _call_weekly_gemma(ctx)
+    except Exception as exc:
+        from app.services.gemma_agent import ollama_error_message
+
+        used_mock = True
+        gemma_text = _fallback_weekly_gemma(ctx, ollama_error_message(exc))
     pdf_bytes = _build_pdf(ctx, gemma_text)
     filename = f"emergyx-weekly-care-report-{ctx['start_date']}-to-{ctx['end_date']}.pdf"
     return WeeklyReportResult(
         pdf_bytes=pdf_bytes,
         filename=filename,
-        model_name=GEMMA_WEEKLY_MODEL,
-        used_mock=False,
+        model_name=f"fallback:{GEMMA_WEEKLY_MODEL}" if used_mock else GEMMA_WEEKLY_MODEL,
+        used_mock=used_mock,
         context=ctx,
         gemma_text=gemma_text,
     )

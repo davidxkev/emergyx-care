@@ -27,7 +27,7 @@ DEFAULT_SCHEDULE: dict[str, Any] = {
     "weekly_day": 0,
     "weekly_time": "09:00",
     "weekly_send_telegram": False,
-    "pattern_enabled": True,
+    "pattern_enabled": False,
     "pattern_interval_minutes": 60,
     "pattern_send_telegram": False,
 }
