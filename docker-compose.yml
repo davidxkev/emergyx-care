@@ -13,10 +13,12 @@ services:
     environment:
       OLLAMA_HOST: http://ollama:11434
       GEMMA_MODEL: ${GEMMA_MODEL:-gemma4:e2b}
-    entrypoint: ["/bin/sh", "-c"]
-    command: >
-      until ollama list >/dev/null 2>&1; do sleep 2; done;
-      ollama pull "$${GEMMA_MODEL}"
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        until ollama list >/dev/null 2>&1; do sleep 2; done;
+        ollama pull "$${GEMMA_MODEL}"
     volumes:
       - ollama:/root/.ollama
 
