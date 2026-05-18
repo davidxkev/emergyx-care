@@ -96,18 +96,6 @@ Urgent alerts are rule-based and immediate by default. Gemma explains,
 summarizes, and reports after events are logged, so emergency alerting does not
 depend on model latency.
 
-## 3-Minute Demo Script
-
-| Time | Action | What to show |
-| --- | --- | --- |
-| 0:00 | Open `http://localhost:3000/dashboard?mode=demo` | Seeded resident, local safety state, recent care activity, Gemma status |
-| 0:30 | Trigger a demo likely-fall scenario | Dashboard updates, alert is created, local timeline records the event |
-| 1:00 | Open Chat and ask "Why was I alerted?" | Gemma answers from Emergyx local context |
-| 1:45 | Ask "What is the latest heart rate and breathing rate?" | Gemma uses the latest local sensor-like readings |
-| 2:15 | Open Reports | Daily reports, weekly PDF reports, pattern monitor, scheduling |
-| 2:45 | Open Sensors and Residents | Rooms, sensor assignments, resident context used by Gemma |
-| 3:00 | Open Settings | Gemma/Ollama setup, Telegram setup, report schedule, privacy notes |
-
 ## Feature Status
 
 | Feature | Status | Notes |
